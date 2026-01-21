@@ -1,0 +1,17 @@
+# Исключить каталог виртуального окружения Poetry
+.venv/
+
+# Исключить папки сборки
+dist/
+build/
+*.egg-info/
+
+__pycache__/
+
+
+*.log
+
+.vscode
+
+.ruff_cache
+
