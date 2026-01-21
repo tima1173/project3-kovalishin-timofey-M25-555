@@ -75,3 +75,47 @@ class User:
         hashed = hashlib.sha256((password + self._salt).encode()).hexdigest()
         return hashed == self._hashed_password
 
+
+class Wallet:
+    def __init__(self, currency_code: str, balance: float = 0.0) -> None:
+        self.currency_code = currency_code
+        self.balance = balance
+
+    @property
+    def currency_code(self) -> str:
+        return self._currency_code
+
+    @currency_code.setter
+    def currency_code(self, value: str) -> None:
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("currency_code должен быть непустой строкой")
+        self._currency_code = value.strip().upper()
+
+    @property
+    def balance(self) -> float:
+        return self._balance
+
+    @balance.setter
+    def balance(self, value: float) -> None:
+        if not isinstance(value, (int, float)):
+            raise TypeError("balance должен быть числом")
+        if value < 0:
+            raise ValueError("balance не может быть отрицательным")
+        self._balance = value
+
+    def deposit(self, amount: float) -> None:
+        if not isinstance(amount, (int, float)) or float(amount) <= 0:
+            raise ValueError("'amount' должен быть положительным числом")
+        self._balance += float(amount)
+
+    def withdraw(self, amount: float) -> None:
+        if not isinstance(amount, (int, float)) or float(amount) <= 0:
+            raise ValueError("'amount' должен быть положительным числом")
+        amount = float(amount)
+        if amount > self._balance:
+            raise ValueError("Недостаточно средств")
+        self._balance -= amount
+
+    def get_balance_info(self) -> str:
+        return f"Баланс: {self._balance:.4f} {self._currency_code}"
+
