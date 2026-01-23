@@ -11,7 +11,7 @@ class User:
         hashed_password: str,
         salt: str,
         registration_date: datetime,
-    ) -> None:
+    ):
         self._user_id = user_id
         self._username = username
         self._hashed_password = hashed_password
@@ -77,7 +77,7 @@ class User:
 
 
 class Wallet:
-    def __init__(self, currency_code: str, balance: float = 0.0) -> None:
+    def __init__(self, currency_code: str, balance: float = 0.0):
         self.currency_code = currency_code
         self.balance = balance
 
@@ -119,3 +119,56 @@ class Wallet:
     def get_balance_info(self) -> str:
         return f"Баланс: {self._balance:.4f} {self._currency_code}"
 
+
+class Portfolio:
+    def __init__(self, user_id: int):
+        self._user_id = int(user_id)
+        self._wallets = {}
+
+    @property
+    def user(self) -> int:
+        return self._user_id
+
+    @property
+    def wallets(self) -> dict:
+        return self._wallets.copy()
+
+    def add_currency(self, currency_code: str):
+        code = str(currency_code).strip().upper()
+        if not code:
+            raise ValueError("currency_code должен быть непустой строкой")
+        if code in self._wallets:
+            raise ValueError("Код валюты должен быть уникален")
+        self._wallets[code] = Wallet(currency_code=code, balance=0.0)
+
+    def get_wallet(self, currency_code: str) -> Wallet | None:
+        code = str(currency_code).strip().upper()
+        return self._wallets.get(code)
+
+    def get_total_value(self, base_currency: str = "USD") -> float:
+        exchange_rates = {
+            "USD_USD": 1,
+            "EUR_USD": 1.1,
+            "BTC_USD": 60000,
+            "ETH_USD": 3720,
+            "RUB_USD": 0.01,
+        }
+
+        base = str(base_currency).strip().upper()
+        if not base:
+            raise ValueError("base_currency должен быть непустой строкой")
+
+        total = 0.0
+        for code, wallet in self._wallets.items():
+            if code == base:
+                total += wallet.balance
+                continue
+
+            pair = f"{code}_{base}"
+            rate = exchange_rates.get(pair)
+            if not rate:
+                raise ValueError(f"Не удалось получить курс для {code}→{base}")
+
+            total += wallet.balance * float(rate)
+
+        return total
