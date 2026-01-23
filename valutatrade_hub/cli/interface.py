@@ -1,34 +1,47 @@
 from valutatrade_hub.core.usecases import *
 
 auth_service = AuthService()
-portfolio_service = PortfolioService()
+portfolio_service = PortfolioService(auth_service)
 rate_service = RateService()
 
 
 def main():
     print("CLI started")
-    auth_service.register("alice", "1234")
+    cmd_login({"username": "alice", "password": "1234"})
+    cmd_show_portfolio({})
+
 
 
 
 def cmd_register(args: dict) -> None:
-    auth_service.register(
-        username=args.get("username"),
-        password=args.get("password"),
-    )
+    try:
+        auth_service.register(
+            username=args.get("username"),
+            password=args.get("password"),
+        )
+    except Exception as e:
+        print(e)
 
 
 def cmd_login(args: dict) -> None:
-    auth_service.login(
-        username=args.get("username"),
-        password=args.get("password"),
-    )
+    try:
+        auth_service.login(
+            username=args.get("username"),
+            password=args.get("password"),
+        )
+    except Exception as e:
+        print(e)
+
 
 
 def cmd_show_portfolio(args: dict) -> None:
-    portfolio_service.show_portfolio(
-        base_currency=args.get("base"),
-    )
+    try:
+        portfolio_service.show_portfolio(
+            base_currency=args.get("base"),
+        )
+    except Exception as e:
+        print(e)
+
 
 
 def cmd_buy(args: dict) -> None:
