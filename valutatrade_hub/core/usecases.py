@@ -1,7 +1,11 @@
 from datetime import datetime
 
 from valutatrade_hub.core.models import User, Portfolio, Wallet
-from valutatrade_hub.core.utils import *
+from valutatrade_hub.core.utils import (
+    load_json, require_login, save_json, get_rate, validate_amount 
+)
+from valutatrade_hub.core.utils import get_rate as _get_rate, validate_currency_code
+
 
 
 class AuthService:
@@ -153,9 +157,55 @@ class PortfolioService:
 
 
     def sell(self, currency: str, amount: float) -> None:
-        pass
+        require_login(self.auth_service.current_user)
+
+        code = validate_currency_code(currency)
+        validate_amount(amount)
+
+        user_id = self.auth_service.current_user.user_id
+        portfolios = load_json("portfolios.json")
+
+        for p in portfolios:
+            if p["user_id"] == user_id:
+                wallets = p.get("wallets", {})
+
+                if code not in wallets:
+                    raise ValueError(
+                        f"У вас нет кошелька '{code}'. "
+                        f"Добавьте валюту: она создаётся автоматически при первой покупке."
+                    )
+
+                wallet = wallets[code]
+                balance = wallet.get("balance", 0.0)
+
+                if amount > balance:
+                    raise ValueError(
+                        f"Недостаточно средств: доступно {balance:.4f} {code}, "
+                        f"требуется {amount:.4f} {code}"
+                    )
+
+                wallet["balance"] -= amount
+
+                save_json("portfolios.json", portfolios)
+
+                print(f"Продажа выполнена: {amount:.4f} {code}")
+                print(f"- {code}: было {balance:.4f} → стало {wallet['balance']:.4f}")
+                return
+
+        raise ValueError("Портфель пользователя не найден")
+
 
 
 class RateService:
     def get_rate(self, from_currency: str, to_currency: str) -> None:
-        pass
+        src = validate_currency_code(from_currency)
+        dst = validate_currency_code(to_currency)
+
+        info = _get_rate(src, dst)
+
+        rate = info["rate"]
+        updated_at = info["updated_at"]
+
+        print(f"Курс {src}→{dst}: {rate}")
+        print(f"Обновлено: {updated_at}")
+
