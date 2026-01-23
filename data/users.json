@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "user_id": 1,
+    "username": "alice",
+    "hashed_password": "358fe5b16f55e2774aa4b8994daf4dc8a47bc0f3d6a9d7de48b73f3f8a7f62b3",
+    "salt": "77931fc8193b9623",
+    "registration_date": "2026-01-23T09:38:35.459927"
+  }
+]

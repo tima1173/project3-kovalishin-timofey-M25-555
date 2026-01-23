@@ -1,5 +1,4 @@
-from valutatrade_hub.core.usecases import AuthService, PortfolioService, RateService
-
+from valutatrade_hub.core.usecases import *
 
 auth_service = AuthService()
 portfolio_service = PortfolioService()
@@ -8,6 +7,8 @@ rate_service = RateService()
 
 def main():
     print("CLI started")
+    auth_service.register("alice", "1234")
+
 
 
 def cmd_register(args: dict) -> None:

@@ -1,4 +1,10 @@
 from datetime import datetime
+import json
+from pathlib import Path
+from typing import Any
+
+
+DATA_DIR = Path("data")
 
 
 def get_rate(from_currency: str, to_currency: str) -> dict:
@@ -41,3 +47,16 @@ def validate_currency_code(currency_code: str) -> str:
 def require_login(current_user) -> None:
     if current_user is None:
         raise PermissionError("Сначала выполните login")
+
+def load_json(filename: str) -> Any:
+    path = DATA_DIR / filename
+    if not path.exists():
+        raise FileNotFoundError(f"Файл {filename} не найден")
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_json(filename: str, data: Any) -> None:
+    path = DATA_DIR / filename
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
