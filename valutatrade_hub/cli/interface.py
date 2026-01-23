@@ -8,7 +8,10 @@ rate_service = RateService()
 def main():
     print("CLI started")
     cmd_login({"username": "alice", "password": "1234"})
+    cmd_buy({"currency": "BTC", "amount": 0.05})
     cmd_show_portfolio({})
+
+
 
 
 
@@ -45,10 +48,14 @@ def cmd_show_portfolio(args: dict) -> None:
 
 
 def cmd_buy(args: dict) -> None:
-    portfolio_service.buy(
-        currency=args.get("currency"),
-        amount=args.get("amount"),
-    )
+    try:
+        portfolio_service.buy(
+            currency=args.get("currency"),
+            amount=args.get("amount"),
+        )
+    except Exception as e:
+        print(e)
+
 
 
 def cmd_sell(args: dict) -> None:

@@ -88,19 +88,17 @@ class PortfolioService:
     def show_portfolio(self, base_currency: str | None = None) -> None:
         require_login(self.auth_service.current_user)
 
-        base = base_currency or "USD"
+        base = (base_currency or "USD").upper()
         user_id = self.auth_service.current_user.user_id
 
         portfolios = load_json("portfolios.json")
 
         for p in portfolios:
             if p["user_id"] == user_id:
-                wallets_data = p.get("wallets", {})
-                if not wallets_data:
+                wallets = p.get("wallets", {})
+                if not wallets:
                     print("Портфель пуст")
                     return
-
-                portfolio = Portfolio.from_dict(p)
 
                 print(
                     f"Портфель пользователя '{self.auth_service.current_user.username}' "
@@ -108,15 +106,17 @@ class PortfolioService:
                 )
 
                 total = 0.0
-                for code, wallet in portfolio.wallets.items():
+                for code, data in wallets.items():
+                    balance = data["balance"]
+
                     if code == base:
-                        value = wallet.balance
+                        value = balance
                     else:
-                        rate_info = get_rate(code, base)
-                        value = wallet.balance * rate_info["rate"]
+                        rate = get_rate(code, base)["rate"]
+                        value = balance * rate
 
                     total += value
-                    print(f"- {code}: {wallet.balance:.4f} → {value:.2f} {base}")
+                    print(f"- {code}: {balance:.4f} → {value:.2f} {base}")
 
                 print("-" * 33)
                 print(f"ИТОГО: {total:.2f} {base}")
@@ -125,8 +125,32 @@ class PortfolioService:
         print("Портфель пользователя не найден")
 
 
+
     def buy(self, currency: str, amount: float) -> None:
-        pass
+        require_login(self.auth_service.current_user)
+
+        code = validate_currency_code(currency)
+        validate_amount(amount)
+
+        user_id = self.auth_service.current_user.user_id
+        portfolios = load_json("portfolios.json")
+
+        for p in portfolios:
+            if p["user_id"] == user_id:
+                wallets = p.setdefault("wallets", {})
+
+                wallet = wallets.setdefault(code, {"balance": 0.0})
+                wallet["balance"] += amount
+
+                save_json("portfolios.json", portfolios)
+
+                print(f"Покупка выполнена: {amount:.4f} {code}")
+                print(f"- {code}: {wallet['balance']:.4f}")
+                return
+
+        raise ValueError("Портфель пользователя не найден")
+
+
 
     def sell(self, currency: str, amount: float) -> None:
         pass
