@@ -5,18 +5,6 @@ portfolio_service = PortfolioService(auth_service)
 rate_service = RateService()
 
 
-def main():
-    print("CLI started")
-    cmd_login({"username": "alice", "password": "1234"})
-    cmd_sell({"currency": "BTC", "amount": 0.01})
-    cmd_get_rate({"from": "BTC", "to": "USD"})
-
-
-
-
-
-
-
 def cmd_register(args: dict) -> None:
     try:
         auth_service.register(

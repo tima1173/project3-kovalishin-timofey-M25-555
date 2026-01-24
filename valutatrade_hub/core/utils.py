@@ -8,14 +8,6 @@ DATA_DIR = Path("data")
 
 
 def get_rate(from_currency: str, to_currency: str) -> dict:
-    """
-    Контракт получения курса.
-    Возвращает словарь:
-    {
-        "rate": float,
-        "updated_at": str (ISO)
-    }
-    """
     exchange_rates = {
         "EUR_USD": 1.1,
         "BTC_USD": 60000,
@@ -25,13 +17,21 @@ def get_rate(from_currency: str, to_currency: str) -> dict:
     }
 
     pair = f"{from_currency}_{to_currency}"
-    if pair not in exchange_rates:
-        raise ValueError(f"Курс {pair} недоступен")
+    if pair in exchange_rates:
+        return {
+            "rate": exchange_rates[pair],
+            "updated_at": datetime.now().isoformat(),
+        }
 
-    return {
-        "rate": exchange_rates[pair],
-        "updated_at": datetime.now().isoformat(),
-    }
+    reverse_pair = f"{to_currency}_{from_currency}"
+    if reverse_pair in exchange_rates:
+        return {
+            "rate": 1 / exchange_rates[reverse_pair],
+            "updated_at": datetime.now().isoformat(),
+        }
+
+    raise ValueError(f"Курс {pair} недоступен")
+
 
 def validate_amount(amount: float) -> None:
     if not isinstance(amount, (int, float)) or float(amount) <= 0:

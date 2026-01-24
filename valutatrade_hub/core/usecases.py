@@ -183,7 +183,7 @@ class PortfolioService:
                         f"Недостаточно средств: доступно {balance:.4f} {code}, "
                         f"требуется {amount:.4f} {code}"
                     )
-
+                
                 wallet["balance"] -= amount
 
                 save_json("portfolios.json", portfolios)
@@ -208,4 +208,5 @@ class RateService:
 
         print(f"Курс {src}→{dst}: {rate}")
         print(f"Обновлено: {updated_at}")
+
 
