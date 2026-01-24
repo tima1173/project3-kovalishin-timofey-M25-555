@@ -1,8 +1,8 @@
-from valutatrade_hub.core.currencies import get_currency
-
-def main():
-    print(get_currency("rub").get_display_info())
-    print(get_currency("sdf").get_display_info())
-
+'''
+from valutatrade_hub.infra.settings import SettingsLoader
+from valutatrade_hub.infra.database import DatabaseManager
+'''
 
 
+def main() -> None:
+    print('project start')
