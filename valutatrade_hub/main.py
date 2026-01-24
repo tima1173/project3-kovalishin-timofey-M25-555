@@ -1,8 +1,5 @@
-'''
-from valutatrade_hub.infra.settings import SettingsLoader
-from valutatrade_hub.infra.database import DatabaseManager
-'''
+from valutatrade_hub.logging_config import setup_logging
 
 
-def main() -> None:
-    print('project start')
+def main():
+    setup_logging()
