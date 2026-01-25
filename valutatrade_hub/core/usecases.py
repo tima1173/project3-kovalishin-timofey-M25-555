@@ -169,7 +169,7 @@ class PortfolioService:
 
     @log_action("BUY")
     def buy(self, currency: str, amount: float) -> None:
-        if not amount.isinstance(int, float) or amount <= 0:
+        if not isinstance(amount, (int, float)) or amount <= 0:
             raise ValueError("'amount' должен быть положительным числом")
 
         cur = get_currency(currency)
@@ -194,7 +194,7 @@ class PortfolioService:
 
     @log_action("SELL")
     def sell(self, currency: str, amount: float) -> None:
-        if amount <= 0:
+        if not isinstance(amount, (int, float)) or amount <= 0:
             raise ValueError("'amount' должен быть положительным числом")
 
         cur = get_currency(currency)
