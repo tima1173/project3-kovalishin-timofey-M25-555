@@ -1,5 +1,15 @@
-from valutatrade_hub.logging_config import setup_logging
 
+from valutatrade_hub.core.usecases import RateService
+import datetime
 
 def main():
-    setup_logging()
+    rates = RateService()
+    rate = rates.get_rate("BTC", "USD")
+    
+    print(rate)
+    print(datetime.datetime.now(datetime.timezone.utc))
+
+
+if __name__ == "__main__":
+    main()
+    

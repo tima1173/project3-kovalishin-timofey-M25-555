@@ -1,21 +1,38 @@
-from datetime import datetime
-
-from valutatrade_hub.core.models import User, Portfolio, Wallet
-from valutatrade_hub.core.utils import (
-    load_json, require_login, save_json, get_rate, validate_amount 
+from valutatrade_hub.infra.database import DatabaseManager
+from valutatrade_hub.infra.settings import SettingsLoader
+from valutatrade_hub.core.currencies import get_currency
+from valutatrade_hub.core.exceptions import (
+    CurrencyNotFoundError,
+    InsufficientFundsError,
+    ApiRequestError,
 )
-from valutatrade_hub.core.utils import get_rate as _get_rate, validate_currency_code
+from valutatrade_hub.decorators import log_action
+from valutatrade_hub.core.models import User
+
+import datetime
+from datetime import datetime, timezone
+
+
+
+
+
+
 
 
 
 class AuthService:
+    def __init__(self):
+        self.db = DatabaseManager()
+        self.settings = SettingsLoader()
+        self.current_user: User | None = None
+
     def register(self, username: str, password: str) -> None:
         if not isinstance(username, str) or not username.strip():
             raise ValueError("Имя пользователя не может быть пустым")
         if not isinstance(password, str) or len(password) < 4:
             raise ValueError("Пароль должен быть не короче 4 символов")
 
-        users = load_json("users.json")
+        users = self.db.read("users.json")
 
         for u in users:
             if u["username"] == username:
@@ -28,7 +45,7 @@ class AuthService:
             username=username,
             hashed_password="",
             salt="",
-            registration_date=datetime.utcnow(),
+            registration_date=datetime.now(),
         )
         user.change_password(password)
 
@@ -40,14 +57,14 @@ class AuthService:
             "registration_date": user.registration_date.isoformat(),
         })
 
-        save_json("users.json", users)
+        self.db.write("users.json", users)
 
-        portfolios = load_json("portfolios.json")
+        portfolios = self.db.read("portfolios.json")
         portfolios.append({
             "user_id": next_id,
             "wallets": {}
         })
-        save_json("portfolios.json", portfolios)
+        self.db.write("portfolios.json", portfolios)
 
         print(
             f"Пользователь '{username}' зарегистрирован (id={next_id}). "
@@ -60,7 +77,7 @@ class AuthService:
         if not isinstance(password, str):
             raise ValueError("Пароль обязателен")
 
-        users = load_json("users.json")
+        users = self.db.read("users.json")
 
         for data in users:
             if data["username"] == username:
@@ -82,131 +99,160 @@ class AuthService:
                 return
 
         raise ValueError(f"Пользователь '{username}' не найден")
+
   
 
 
 class PortfolioService:
     def __init__(self, auth_service):
         self.auth_service = auth_service
+        self.db = DatabaseManager()
+        self.settings = SettingsLoader()
 
-    def show_portfolio(self, base_currency: str | None = None) -> None:
-        require_login(self.auth_service.current_user)
 
-        base = (base_currency or "USD").upper()
-        user_id = self.auth_service.current_user.user_id
+    def show_portfolio(self, base_currency: str = "USD") -> dict:
+        user = self.auth_service.current_user
+        if not user:
+            raise ValueError("Сначала выполните login")
 
-        portfolios = load_json("portfolios.json")
+        base = get_currency(base_currency)
+
+        portfolios = self.db.read("portfolios.json")
 
         for p in portfolios:
-            if p["user_id"] == user_id:
+            if p["user_id"] == user.user_id:
                 wallets = p.get("wallets", {})
                 if not wallets:
-                    print("Портфель пуст")
-                    return
+                    return {
+                        "user": user.username,
+                        "base": base.code,
+                        "items": [],
+                        "total": 0.0,
+                    }
 
-                print(
-                    f"Портфель пользователя '{self.auth_service.current_user.username}' "
-                    f"(база: {base}):"
-                )
+                rates = self.db.read("rates.json")
 
+                result = []
                 total = 0.0
-                for code, data in wallets.items():
-                    balance = data["balance"]
 
-                    if code == base:
+                for code, data in wallets.items():
+                    currency = get_currency(code)
+                    balance = float(data.get("balance", 0.0))
+
+                    if currency.code == base.code:
                         value = balance
                     else:
-                        rate = get_rate(code, base)["rate"]
-                        value = balance * rate
+                        pair = f"{currency.code}_{base.code}"
+                        if pair not in rates:
+                            raise ApiRequestError(f"Курс {pair} недоступен")
+                        rate = rates[pair]["rate"]
+                        value = balance * float(rate)
 
                     total += value
-                    print(f"- {code}: {balance:.4f} → {value:.2f} {base}")
+                    result.append({
+                        "currency": currency.code,
+                        "balance": balance,
+                        "value": value,
+                    })
 
-                print("-" * 33)
-                print(f"ИТОГО: {total:.2f} {base}")
-                return
+                return {
+                    "user": user.username,
+                    "base": base.code,
+                    "items": result,
+                    "total": total,
+                }
 
-        print("Портфель пользователя не найден")
+        raise ValueError("Портфель пользователя не найден")
 
 
 
+
+    @log_action("BUY")
     def buy(self, currency: str, amount: float) -> None:
-        require_login(self.auth_service.current_user)
+        if amount <= 0:
+            raise ValueError("'amount' должен быть положительным числом")
 
-        code = validate_currency_code(currency)
-        validate_amount(amount)
+        cur = get_currency(currency)
 
-        user_id = self.auth_service.current_user.user_id
-        portfolios = load_json("portfolios.json")
+        user = self.auth_service.current_user
+        if not user:
+            raise ValueError("Сначала выполните login")
+
+        portfolios = self.db.read("portfolios.json")
 
         for p in portfolios:
-            if p["user_id"] == user_id:
+            if p["user_id"] == user.user_id:
                 wallets = p.setdefault("wallets", {})
-
-                wallet = wallets.setdefault(code, {"balance": 0.0})
-                wallet["balance"] += amount
-
-                save_json("portfolios.json", portfolios)
-
-                print(f"Покупка выполнена: {amount:.4f} {code}")
-                print(f"- {code}: {wallet['balance']:.4f}")
+                w = wallets.setdefault(cur.code, {"balance": 0.0})
+                w["balance"] += amount
+                self.db.write("portfolios.json", portfolios)
                 return
 
         raise ValueError("Портфель пользователя не найден")
+    
+    
 
-
-
+    @log_action("SELL")
     def sell(self, currency: str, amount: float) -> None:
-        require_login(self.auth_service.current_user)
+        if amount <= 0:
+            raise ValueError("'amount' должен быть положительным числом")
 
-        code = validate_currency_code(currency)
-        validate_amount(amount)
+        cur = get_currency(currency)
 
-        user_id = self.auth_service.current_user.user_id
-        portfolios = load_json("portfolios.json")
+        user = self.auth_service.current_user
+        if not user:
+            raise ValueError("Сначала выполните login")
+
+        portfolios = self.db.read("portfolios.json")
 
         for p in portfolios:
-            if p["user_id"] == user_id:
+            if p["user_id"] == user.user_id:
                 wallets = p.get("wallets", {})
+                if cur.code not in wallets:
+                    raise CurrencyNotFoundError(cur.code)
 
-                if code not in wallets:
-                    raise ValueError(
-                        f"У вас нет кошелька '{code}'. "
-                        f"Добавьте валюту: она создаётся автоматически при первой покупке."
-                    )
-
-                wallet = wallets[code]
-                balance = wallet.get("balance", 0.0)
-
+                balance = wallets[cur.code].get("balance", 0.0)
                 if amount > balance:
-                    raise ValueError(
-                        f"Недостаточно средств: доступно {balance:.4f} {code}, "
-                        f"требуется {amount:.4f} {code}"
-                    )
-                
-                wallet["balance"] -= amount
+                    raise InsufficientFundsError(balance, amount, cur.code)
 
-                save_json("portfolios.json", portfolios)
-
-                print(f"Продажа выполнена: {amount:.4f} {code}")
-                print(f"- {code}: было {balance:.4f} → стало {wallet['balance']:.4f}")
+                wallets[cur.code]["balance"] -= amount
+                self.db.write("portfolios.json", portfolios)
                 return
 
         raise ValueError("Портфель пользователя не найден")
+
 
 
 
 class RateService:
-    def get_rate(self, from_currency: str, to_currency: str) -> None:
-        src = validate_currency_code(from_currency)
-        dst = validate_currency_code(to_currency)
+    def __init__(self):
+        self.db = DatabaseManager()
+        self.settings = SettingsLoader()
 
-        info = _get_rate(src, dst)
 
-        rate = info["rate"]
-        updated_at = info["updated_at"]
+    def get_rate(self, from_currency: str, to_currency: str) -> dict:
+        src = get_currency(from_currency)
+        dst = get_currency(to_currency)
 
-        print(f"Курс {src}→{dst}: {rate}")
-        print(f"Обновлено: {updated_at}")
+        rates = self.db.read("rates.json")
+        key = f"{src.code}_{dst.code}"
+
+        if key not in rates:
+            raise ApiRequestError(f"Курс {key} недоступен")
+
+        entry = rates[key]
+        updated_at = datetime.fromisoformat(entry["updated_at"]).replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+
+        ttl = int(self.settings.get("RATES_TTL_SECONDS", 300))
+        age_seconds = (now - updated_at).total_seconds()
+
+        if age_seconds > ttl:
+            raise ApiRequestError(f"Курс {key} устарел")
+
+        return {
+            "rate": entry["rate"],
+            "updated_at": entry["updated_at"],
+        }
 
 

@@ -12,10 +12,10 @@ def log_action(action: str):
 
             try:
                 result = func(*args, **kwargs)
-                logger.info(f"{timestamp} {action} результат = Успех!")
+                logger.info(f"Действие {action} совершено успешно! - {timestamp}")
                 return result
             except Exception as e:
-                logger.error(f"Ошибка при {action} после {timestamp}: {str(e)}")
+                logger.error(f"Ошибка при выполнении действия {action} - {timestamp}: {str(e)}")
                 raise
 
         return wrapper
