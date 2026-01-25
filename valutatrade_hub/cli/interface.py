@@ -1,69 +1,173 @@
-from valutatrade_hub.core.usecases import *
+import shlex
 
-auth_service = AuthService()
-portfolio_service = PortfolioService(auth_service)
-rate_service = RateService()
-
-
-def cmd_register(args: dict) -> None:
-    try:
-        auth_service.register(
-            username=args.get("username"),
-            password=args.get("password"),
-        )
-    except Exception as e:
-        print(e)
-
-
-def cmd_login(args: dict) -> None:
-    try:
-        auth_service.login(
-            username=args.get("username"),
-            password=args.get("password"),
-        )
-    except Exception as e:
-        print(e)
+from prettytable import PrettyTable
+from valutatrade_hub.core.usecases import AuthService, PortfolioService, RateService
+from valutatrade_hub.core.exceptions import (
+    CurrencyNotFoundError,
+    InsufficientFundsError,
+    ApiRequestError,
+)
 
 
 
-def cmd_show_portfolio(args: dict) -> None:
-    try:
-        portfolio_service.show_portfolio(
-            base_currency=args.get("base"),
-        )
-    except Exception as e:
-        print(e)
+def parse_args(parts: list[str]) -> dict:
+    args = {}
+    it = iter(parts)
+    for p in it:
+        if p.startswith("--"):
+            key = p[2:]
+            args[key] = next(it, None)
+    return args
 
 
-
-def cmd_buy(args: dict) -> None:
-    try:
-        portfolio_service.buy(
-            currency=args.get("currency"),
-            amount=args.get("amount"),
-        )
-    except Exception as e:
-        print(e)
-
-
-
-def cmd_sell(args: dict) -> None:
-    try:
-        portfolio_service.sell(
-            currency=args.get("currency"),
-            amount=args.get("amount"),
-        )
-    except Exception as e:
-        print(e)
+def handle_error(exc: Exception) -> None:
+    if isinstance(exc, InsufficientFundsError):
+        print(str(exc))
+    elif isinstance(exc, CurrencyNotFoundError):
+        print(str(exc))
+        print("Валюта не распознана. Используйте: get-rate --from <CODE> --to <CODE>")
+    elif isinstance(exc, ApiRequestError):
+        print(str(exc))
+        print("Повторите попытку позже.")
+    elif isinstance(exc, ValueError):
+        print(str(exc))
+    else:
+        print("Неизвестная ошибка.")
 
 
+def print_help() -> None:
+    print(
+        """
+\nДоступные команды:
+====================================
+- register --username <name> --password <password> - регистрация
+- login --username <name> --password <password> - вход
+- show-portfolio [--base <CODE>] - показать портфель
+- buy --currency <CODE> --amount <amount> - купить валюту
+- sell --currency <CODE> --amount <amount> - продать валюту
+- get-rate --from <CODE> --to <CODE> - получить курс
+- exit - завершить программу
+- help - показать это сообщение
+====================================
 
-def cmd_get_rate(args: dict) -> None:
-    try:
-        rate_service.get_rate(
-            from_currency=args.get("from"),
-            to_currency=args.get("to"),
-        )
-    except Exception as e:
-        print(e)
+"""
+    )
+
+def run_cli() -> None:
+    auth = AuthService()
+    portfolio = PortfolioService(auth)
+    rates = RateService()
+
+    print("\nПлатформа запущена!")
+    print_help()
+
+    while True:
+        try:
+            raw = input("> ").strip()
+            if not raw:
+                continue
+
+            parts = shlex.split(raw)
+            command = parts[0]
+            args = parse_args(parts[1:])
+
+            match command:
+                case "exit":
+                    print("\nПрограмма завершается...")
+                    break
+
+                case "register":
+                    username = args.get("username")
+                    password = args.get("password")
+
+                    if not username or not password:
+                        print("Использование: register --username <name> --password <password>")
+                        continue
+
+                    auth.register(username, password)
+
+
+                case "login":
+                    username = args.get("username")
+                    password = args.get("password")
+
+                    if not username or not password:
+                        print("Использование: login --username <name> --password <password>")
+                        continue
+
+                    auth.login(username, password)
+
+
+                case "show-portfolio":
+                    base = args.get("base", "USD")
+
+                    data = portfolio.show_portfolio(base)
+
+                    table = PrettyTable()
+                    table.field_names = ["Currency", "Balance", f"Value ({base})"]
+
+                    for item in data["items"]:
+                        table.add_row([
+                            item["currency"],
+                            f"{item['balance']:.4f}",
+                            f"{item['value']:.2f}",
+                        ])
+
+                    print(f"\nПортфель пользователя '{data['user']}' (база: {base})")
+                    if data["items"]:
+                        print(table)
+                        print("-" * 40)
+                        print(f"ИТОГО: {data['total']:.2f} {base}")
+                    else:
+                        print("Портфель пуст")
+
+
+                case "buy":
+                    currency = args.get("currency")
+                    amount = args.get("amount")
+
+                    if not currency or not amount:
+                        print("Использование: buy --currency <CODE> --amount <FLOAT>")
+                        continue
+
+                    portfolio.buy(currency, float(amount))
+                    print(f"Покупка выполнена: {amount} {currency.upper()}")
+
+                case "sell":
+                    currency = args.get("currency")
+                    amount = args.get("amount")
+
+                    if not currency or not amount:
+                        print("Использование: sell --currency <CODE> --amount <FLOAT>")
+                        continue
+
+                    portfolio.sell(currency, float(amount))
+                    print(f"Продажа выполнена: {amount} {currency.upper()}")
+
+
+                case "get-rate":
+                    src = args.get("from")
+                    dst = args.get("to")
+
+                    if not src or not dst:
+                        print("Использование: get-rate --from <CODE> --to <CODE>")
+                        continue
+
+                    data = rates.get_rate(src, dst)
+
+                    print(
+                        f"Курс {src.upper()}→{dst.upper()}: "
+                        f"{data['rate']} (обновлено: {data['updated_at']})"
+                    )
+
+                case "help":
+                    print_help()
+
+                case _:
+                    print(f"Неизвестная команда '{command}' введите 'help'.")
+
+        except Exception as e:
+            handle_error(e)
+
+
 

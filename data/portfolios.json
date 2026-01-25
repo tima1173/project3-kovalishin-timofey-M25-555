@@ -3,8 +3,15 @@
     "user_id": 1,
     "wallets": {
       "BTC": {
-        "balance": 0.009999999999999997
+        "balance": 0.014999999999999996
+      },
+      "RUB": {
+        "balance": 3000.0
       }
     }
+  },
+  {
+    "user_id": 2,
+    "wallets": {}
   }
 ]

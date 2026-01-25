@@ -1,13 +1,9 @@
 
-from valutatrade_hub.core.usecases import RateService
-import datetime
+from valutatrade_hub.cli.interface import run_cli
+
 
 def main():
-    rates = RateService()
-    rate = rates.get_rate("BTC", "USD")
-    
-    print(rate)
-    print(datetime.datetime.now(datetime.timezone.utc))
+    run_cli()
 
 
 if __name__ == "__main__":
