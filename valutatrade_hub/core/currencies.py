@@ -59,7 +59,11 @@ _CURRENCY_REGISTRY = {
     "RUB": FiatCurrency("Russian Ruble", "RUB", "Russia"),
     "BTC": CryptoCurrency("Bitcoin", "BTC", "SHA-256", 1.12e12),
     "ETH": CryptoCurrency("Ethereum", "ETH", "Ethash", 4.50e11),
-}
+    "SOL": CryptoCurrency("Solana", "SOL", "Proof of History", 0),
+} 
+
+
+
 
 
 def get_currency(code: str) -> Currency:

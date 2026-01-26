@@ -224,35 +224,43 @@ class PortfolioService:
 
 
 
+
 class RateService:
     def __init__(self):
         self.db = DatabaseManager()
         self.settings = SettingsLoader()
 
-
     def get_rate(self, from_currency: str, to_currency: str) -> dict:
         src = get_currency(from_currency)
         dst = get_currency(to_currency)
 
-        rates = self.db.read("rates.json")
-        key = f"{src.code}_{dst.code}"
+        data = self.db.read("rates.json")
+        pairs = data.get("pairs", {})
 
-        if key not in rates:
-            raise ApiRequestError(f"Курс {key} недоступен")
+        direct_key = f"{src.code}_{dst.code}"
+        reverse_key = f"{dst.code}_{src.code}"
 
-        entry = rates[key]
-        updated_at = datetime.fromisoformat(entry["updated_at"]).replace(tzinfo=timezone.utc)
+        if direct_key in pairs:
+            entry = pairs[direct_key]
+            rate = entry["rate"]
+
+        elif reverse_key in pairs:
+            entry = pairs[reverse_key]
+            rate = 1 / entry["rate"]
+
+        else:
+            raise ApiRequestError(f"Курс {src.code}_{dst.code} недоступен")
+
+        updated_at = datetime.fromisoformat(entry["updated_at"])
         now = datetime.now(timezone.utc)
 
         ttl = int(self.settings.get("RATES_TTL_SECONDS", 300))
         age_seconds = (now - updated_at).total_seconds()
 
         if age_seconds > ttl:
-            raise ApiRequestError(f"Курс {key} устарел")
+            raise ApiRequestError(f"Курс {src.code}_{dst.code} устарел")
 
         return {
-            "rate": entry["rate"],
+            "rate": rate,
             "updated_at": entry["updated_at"],
         }
-
-

@@ -31,7 +31,7 @@ def handle_error(exc: Exception) -> None:
         print("Повторите попытку позже.")
     elif isinstance(exc, ValueError):
         print(str(exc))
-    else:
+    else:   
         print("Неизвестная ошибка.")
 
 
