@@ -11,7 +11,7 @@ from valutatrade_hub.parser_service.config import ParserConfig
 from valutatrade_hub.parser_service.api_clients import CoinGeckoClient, ExchangeRateApiClient
 from valutatrade_hub.parser_service.storage import RatesStorage
 from valutatrade_hub.parser_service.updater import RatesUpdater
-
+from valutatrade_hub.infra.database import DatabaseManager
 
 
 
@@ -182,6 +182,46 @@ def run_cli() -> None:
                         f"Update successful. Total rates updated: {result['updated']}. "
                         f"Last refresh: {result['last_refresh']}"
                     )
+
+                case "show-rates":
+                    data = DatabaseManager().read("rates.json")
+                    pairs = data.get("pairs", {})
+                    if not pairs:
+                        print("Локальный кеш курсов пуст. Выполните 'update-rates'.")
+                        break
+
+                    base = args.get("base", None)
+                    currency = args.get("currency", None)
+                    top = args.get("top", None)
+
+                    rows = []
+                    for pair, entry in pairs.items():
+                        frm, to = pair.split("_")
+
+                        if currency and frm != currency and to != currency:
+                            continue
+
+                        if base and to != base:
+                            continue
+
+                        rows.append((pair, entry["rate"], entry["updated_at"], entry["source"]))
+
+                    if not rows:
+                        print("Курсы по заданным фильтрам не найдены.")
+                        break
+
+                    if top:
+                        try:
+                            n = int(top)
+                            rows.sort(key=lambda r: r[1], reverse=True)
+                            rows = rows[:n]
+                        except ValueError:
+                            print("'top' должен быть числом")
+                            break
+
+                    print(f"Rates from cache (updated at {data.get('last_refresh')}):")
+                    for pair, rate, updated_at, source in rows:
+                        print(f"- {pair}: {rate} (updated: {updated_at}, source: {source})")
 
 
                 case "help":
