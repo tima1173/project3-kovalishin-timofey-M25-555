@@ -7,6 +7,11 @@ from valutatrade_hub.core.exceptions import (
     InsufficientFundsError,
     ApiRequestError,
 )
+from valutatrade_hub.parser_service.config import ParserConfig
+from valutatrade_hub.parser_service.api_clients import CoinGeckoClient, ExchangeRateApiClient
+from valutatrade_hub.parser_service.storage import RatesStorage
+from valutatrade_hub.parser_service.updater import RatesUpdater
+
 
 
 
@@ -46,6 +51,7 @@ def print_help() -> None:
 - buy --currency <CODE> --amount <amount> - купить валюту
 - sell --currency <CODE> --amount <amount> - продать валюту
 - get-rate --from <CODE> --to <CODE> - получить курс
+- update-rates - обновить актуальные курсы
 - exit - завершить программу
 - help - показать это сообщение
 ====================================
@@ -159,6 +165,24 @@ def run_cli() -> None:
                         f"Курс {src.upper()}→{dst.upper()}: "
                         f"{data['rate']} (обновлено: {data['updated_at']})"
                     )
+
+                case "update-rates":
+                    cfg = ParserConfig()
+                    storage = RatesStorage(cfg.RATES_FILE_PATH, cfg.HISTORY_FILE_PATH)
+
+                    clients = [
+                        CoinGeckoClient(cfg),
+                        ExchangeRateApiClient(cfg),
+                    ]
+
+                    updater = RatesUpdater(clients, storage)
+                    result = updater.run_update()
+
+                    print(
+                        f"Update successful. Total rates updated: {result['updated']}. "
+                        f"Last refresh: {result['last_refresh']}"
+                    )
+
 
                 case "help":
                     print_help()

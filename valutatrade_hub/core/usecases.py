@@ -258,9 +258,9 @@ class RateService:
         age_seconds = (now - updated_at).total_seconds()
 
         if age_seconds > ttl:
-            raise ApiRequestError(f"Курс {src.code}_{dst.code} устарел")
+            raise ApiRequestError(f"Курс {src.code}_{dst.code} устарел. Напишите 'update-rates'")
 
         return {
-            "rate": rate,
+            "rate": round(rate, 4),
             "updated_at": entry["updated_at"],
         }

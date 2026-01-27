@@ -49,7 +49,7 @@ class CoinGeckoClient(BaseApiClient):
 
 
 class ExchangeRateApiClient(BaseApiClient):
-    def fetch_rates(self) -> Dict[str, float]:
+    def fetch_rates(self):
         if not self.config.EXCHANGERATE_API_KEY:
             raise ApiRequestError("ExchangeRate API key not configured")
 
@@ -69,15 +69,24 @@ class ExchangeRateApiClient(BaseApiClient):
         if data.get("result") != "success":
             raise ApiRequestError("ExchangeRate-API returned non-success result")
 
-        rates: Dict[str, float] = {}
+        conversion_rates = data.get("conversion_rates", {})
+        if not isinstance(conversion_rates, dict):
+            raise ApiRequestError("ExchangeRate-API malformed response")
+
+        base = self.config.BASE_CURRENCY
+        rates = {}
+
         for code in self.config.FIAT_CURRENCIES:
+            if code == base:
+                continue
             try:
-                rate = data["rates"][code]
-                pair = f"{code}_{self.config.BASE_CURRENCY}"
-                rates[pair] = float(rate)
-            except (KeyError, TypeError):
+                base_to_code = float(conversion_rates[code])  
+                rates[f"{code}_{base}"] = 1 / base_to_code  
+            except (KeyError, TypeError, ZeroDivisionError, ValueError):
                 continue
 
         return rates
+
+
 
 
