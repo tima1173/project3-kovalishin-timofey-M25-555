@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 
 from valutatrade_hub.core.exceptions import ApiRequestError
-from valutatrade_hub.parser_service.api_clients import BaseApiClient
 from valutatrade_hub.parser_service.storage import RatesStorage
 
 from valutatrade_hub.parser_service.api_clients import (
