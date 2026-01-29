@@ -14,7 +14,6 @@ from valutatrade_hub.parser_service.updater import RatesUpdater
 from valutatrade_hub.infra.database import DatabaseManager
 
 
-
 def parse_args(parts: list[str]) -> dict:
     args = {}
     it = iter(parts)
@@ -51,13 +50,15 @@ def print_help() -> None:
 - buy --currency <CODE> --amount <amount> - купить валюту
 - sell --currency <CODE> --amount <amount> - продать валюту
 - get-rate --from <CODE> --to <CODE> - получить курс
-- update-rates - обновить актуальные курсы
+- update-rates [--source <coingecko|exchangerate>] - обновить актуальные курсы
+- show-rates [--currency <CODE>] [--top <N>] [--base <CODE>] - показать курсы
 - exit - завершить программу
 - help - показать это сообщение
 ====================================
 
 """
     )
+
 
 def run_cli() -> None:
     auth = AuthService()
@@ -167,15 +168,13 @@ def run_cli() -> None:
                     )
 
                 case "update-rates":
-                    cfg = ParserConfig()
-                    storage = RatesStorage(cfg.RATES_FILE_PATH, cfg.HISTORY_FILE_PATH)
+                    source = args.get("source")
 
-                    clients = [
-                        CoinGeckoClient(cfg),
-                        ExchangeRateApiClient(cfg),
-                    ]
+                    if source is not None and source not in ("coingecko", "exchangerate"):
+                        print("Источник должен быть 'coingecko' или 'exchangerate'")
+                        continue
 
-                    updater = RatesUpdater(clients, storage)
+                    updater = RatesUpdater.build_rates_updater(source)
                     result = updater.run_update()
 
                     print(
@@ -188,7 +187,7 @@ def run_cli() -> None:
                     pairs = data.get("pairs", {})
                     if not pairs:
                         print("Локальный кеш курсов пуст. Выполните 'update-rates'.")
-                        break
+                        continue
 
                     base = args.get("base", None)
                     currency = args.get("currency", None)
@@ -208,7 +207,7 @@ def run_cli() -> None:
 
                     if not rows:
                         print("Курсы по заданным фильтрам не найдены.")
-                        break
+                        continue
 
                     if top:
                         try:
@@ -217,7 +216,7 @@ def run_cli() -> None:
                             rows = rows[:n]
                         except ValueError:
                             print("'top' должен быть числом")
-                            break
+                            continue
 
                     print(f"Rates from cache (updated at {data.get('last_refresh')}):")
                     for pair, rate, updated_at, source in rows:
@@ -232,6 +231,3 @@ def run_cli() -> None:
 
         except Exception as e:
             handle_error(e)
-
-
-

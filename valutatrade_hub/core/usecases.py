@@ -120,49 +120,56 @@ class PortfolioService:
         portfolios = self.db.read("portfolios.json")
 
         for p in portfolios:
-            if p["user_id"] == user.user_id:
-                wallets = p.get("wallets", {})
-                if not wallets:
-                    return {
-                        "user": user.username,
-                        "base": base.code,
-                        "items": [],
-                        "total": 0.0,
-                    }
+            if p["user_id"] != user.user_id:
+                continue
 
-                rates = self.db.read("rates.json")
-
-                result = []
-                total = 0.0
-
-                for code, data in wallets.items():
-                    currency = get_currency(code)
-                    balance = float(data.get("balance", 0.0))
-
-                    if currency.code == base.code:
-                        value = balance
-                    else:
-                        pair = f"{currency.code}_{base.code}"
-                        if pair not in rates:
-                            raise ApiRequestError(f"Курс {pair} недоступен")
-                        rate = rates[pair]["rate"]
-                        value = balance * float(rate)
-
-                    total += value
-                    result.append({
-                        "currency": currency.code,
-                        "balance": balance,
-                        "value": value,
-                    })
-
+            wallets = p.get("wallets", {})
+            if not wallets:
                 return {
                     "user": user.username,
                     "base": base.code,
-                    "items": result,
-                    "total": total,
+                    "items": [],
+                    "total": 0.0,
                 }
 
+            rates_data = self.db.read("rates.json")
+            pairs = rates_data.get("pairs", {})
+
+            result = []
+            total = 0.0
+
+            for code, data in wallets.items():
+                currency = get_currency(code)
+                balance = float(data.get("balance", 0.0))
+
+                if currency.code == base.code:
+                    value = balance
+                else:
+                    pair = f"{currency.code}_{base.code}"
+                    if pair not in pairs:
+                        raise ApiRequestError(f"Курс {pair} недоступен")
+
+                    rate = float(pairs[pair]["rate"])
+                    value = balance * rate
+
+                total += value
+                result.append(
+                    {
+                        "currency": currency.code,
+                        "balance": balance,
+                        "value": value,
+                    }
+                )
+
+            return {
+                "user": user.username,
+                "base": base.code,
+                "items": result,
+                "total": total,
+            }
+
         raise ValueError("Портфель пользователя не найден")
+
 
 
 

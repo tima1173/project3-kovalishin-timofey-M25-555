@@ -14,7 +14,13 @@
     "user_id": 2,
     "wallets": {
       "BTC": {
-        "balance": 5.0
+        "balance": 4.5
+      },
+      "USD": {
+        "balance": 100.0
+      },
+      "RUB": {
+        "balance": 200.0
       }
     }
   }

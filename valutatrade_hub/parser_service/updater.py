@@ -4,6 +4,11 @@ from valutatrade_hub.core.exceptions import ApiRequestError
 from valutatrade_hub.parser_service.api_clients import BaseApiClient
 from valutatrade_hub.parser_service.storage import RatesStorage
 
+from valutatrade_hub.parser_service.api_clients import (
+    CoinGeckoClient,
+    ExchangeRateApiClient,
+)
+from valutatrade_hub.parser_service.config import ParserConfig
 
 class RatesUpdater:
     def __init__(self, clients: list, storage: RatesStorage):
@@ -51,3 +56,18 @@ class RatesUpdater:
             "updated": len(all_rates),
             "last_refresh": now,
         }
+    
+    @staticmethod
+    def build_rates_updater(source: str | None):
+        cfg = ParserConfig()
+        storage = RatesStorage(cfg.RATES_FILE_PATH, cfg.HISTORY_FILE_PATH)
+
+        clients = []
+
+        if source in (None, "coingecko"):
+            clients.append(CoinGeckoClient(cfg))
+
+        if source in (None, "exchangerate"):
+            clients.append(ExchangeRateApiClient(cfg))
+
+        return RatesUpdater(clients, storage)
